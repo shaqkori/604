@@ -1,0 +1,71 @@
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Deploy CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file initial.yml \
+            --stack-name mainStack \
+            --parameter-overrides \
+                AZ1=${{ secrets.AZ1 }} \
+                AZ2=${{ secrets.AZ2 }} \
+                RepoName=${{ secrets.ECR_REPOSITORY }} \
+                Role=${{ secrets.ECS_TASK_ROLE_ARN }} \
+                KeyPairName=${{ secrets.KEY_PAIR }} \
+                MasterUsername=${{ secrets.DB_USERNAME }} \
+                MasterUserPassword=${{ secrets.DB_PASSWORD }} \
+                DBName=${{ secrets.DB_NAME }} \
+            --capabilities CAPABILITY_NAMED_IAM
+
+      - name: Install MySQL
+        run: |
+          sudo apt-get update -y 
+          sudo apt-get install mysql-client -y
+
+      - name: Get DB endpoint
+
+        id: getDatabase
+        run: |
+          echo "DB_ENDPOINT=$(aws cloudformation describe-stacks --stack-name mainStack --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterEndpoint'].OutputValue" --output text)" >> $GITHUB_ENV
+          echo "password = $(secrets.DB_PASSWORD)"
+
+      - name: Load DatabaseName
+        run: |
+          echo "Attempting to connect to database: $DB_ENDPOINT"
+          mysql -v -h $DB_ENDPOINT -u admin -p$password < schma.sql
+
+      - name: Deploy updated stack
+        run: |
+          aws cloudformation deploy \
+          --stack-name webstack \
+          --template-file main.yml \
+          --capabilities CAPABILITY_NAMED_IAM \
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push backend image
+        run: |
+          # Navigate to the directory containing the Dockerfile
+          cd demoapp
+          docker build build --tag infrastrcture -o type=image --platform=linux/arm64,linux/amd64 
+          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:backend
+          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:backend
