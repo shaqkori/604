@@ -34,12 +34,12 @@ jobs:
                     ContainerSubnetCidr2="10.0.2.0/24" \
                     DBSubnetCidr="10.0.3.0/24" \
                     DBSubnetCidr2="10.0.4.0/24" \
-                    DB_USERNAME=${{ secrets.DB_USERNAME }} \
-                    DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+                    MasterUsername=${{ secrets.DB_USERNAME }} \
+                    MasterUserPassword=${{ secrets.DB_PASSWORD }} \
                     DB_NAME=${{ secrets.DB_NAME }} \
                     MinCapacity=0 \
                     MaxCapacity=1 \
-                    ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }} \
+                    RepoName=${{ secrets.ECR_REPOSITORY }} \
                 --capabilities CAPABILITY_NAMED_IAM
 
       - name: Install MySQL
