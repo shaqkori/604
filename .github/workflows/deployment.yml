@@ -46,7 +46,7 @@ jobs:
                 DBName="${{ secrets.DB_NAME }}" \
                 MinCapacity=0 \
                 MaxCapacity=1 \
-                PubliclyAccessibleDatabase="true" \ # Set to true for initial schema loading
+                PubliclyAccessibleDatabase="true" \ 
             --capabilities CAPABILITY_NAMED_IAM
 
       - name: Get Database Stack Outputs
