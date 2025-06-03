@@ -190,7 +190,6 @@ Resources:
         MaxCapacity: !Ref MaxCapacity
       EnableHttpEndpoint: true
       StorageEncrypted: true
-      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
       Tags:
         - Key: Name
           Value: budgetapp-prod-aurora-cluster
