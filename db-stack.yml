@@ -202,11 +202,9 @@ Resources:
       DBInstanceClass: db.serverless
       Engine: aurora-mysql
       PromotionTier: 1
-      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
       Tags:
         - Key: Name
           Value: budgetapp-prod-aurora-primary
-
 Outputs:
   AuroraClusterEndpoint:
     Description: "Aurora Cluster Endpoint"
