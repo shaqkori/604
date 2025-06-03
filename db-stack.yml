@@ -2,6 +2,37 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: CloudFormation template for the database resources of the financial budgeting and savings application.
 
 Parameters:
+  Cidr:
+    Type: String
+    Default: "10.0.0.0/16"
+    Description: Enter the CIDR block for the VPC.
+
+  ContainerAV: # These are still here from the original combined template, but not directly used by DB resources.
+    Type: AWS::EC2::AvailabilityZone::Name # Consider if these are truly needed in this DB stack.
+    Description: Availability Zone for subnet 1.
+
+  ContainerAV2: # These are still here from the original combined template, but not directly used by DB resources.
+    Type: AWS::EC2::AvailabilityZone::Name # Consider if these are truly needed in this DB stack.
+    Description: Availability Zone for subnet 2.
+
+  DBSubnetCidr:
+    Type: String
+    Description: CIDR Block for DB subnet 1.
+    Default: "10.0.3.0/24"
+
+  DBAV:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for DB subnet 1.
+
+  DBSubnetCidr2:
+    Type: String
+    Description: CIDR Block for DB subnet 2.
+    Default: "10.0.4.0/24"
+
+  DBAV2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for DB subnet 2.
+
   MasterUsername:
     Type: String
     Description: "Master username for the RDS instance"
@@ -29,24 +60,6 @@ Parameters:
     Default: 1
     MinValue: 0.5
     MaxValue: 128
-
-  DBSubnetCidr:
-    Type: String
-    Description: CIDR Block for DB subnet 1
-    Default: "10.0.3.0/24"
-
-  DBAV:
-    Type: AWS::EC2::AvailabilityZone::Name
-    Description: Availability Zone for DB subnet 1
-
-  DBSubnetCidr2:
-    Type: String
-    Description: CIDR Block for DB subnet 2
-    Default: "10.0.4.0/24"
-
-  DBAV2:
-    Type: AWS::EC2::AvailabilityZone::Name
-    Description: Availability Zone for DB subnet 2
 
 Resources:
   VPC:
@@ -97,33 +110,53 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       Tags:
-        - key: Name
-          Value: bugetapp-prod-public-rt
+        - Key: Name
+          Value: budgetapp-prod-public-rt
 
+  # --- Missing Resource: Route to Internet Gateway ---
   PublicRoute:
     Type: AWS::EC2::Route
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
+  # --- End Missing Resource ---
 
-  DBContainerSubnetRouteTableAssocition:
+  # Association for DBSubnet2 to the Public Route Table (for temporary public access)
+  DBSubnet2RouteTableAssociation: # Renamed for clarity
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref DBSubnet2
-      RouteTableId: PublicRouteTable
+      RouteTableId: !Ref PublicRouteTable # Associate with the public route table
+
+  # --- New: Private Route Table for DBSubnet (default private) ---
+  PrivateRouteTableDB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-db-private-rt
+  # --- End New ---
+
+  # Association for DBSubnet to the Private Route Table (default private)
+  DBSubnetRouteTableAssociation: # Renamed for clarity
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBSubnet
+      RouteTableId: !Ref PrivateRouteTableDB # Associate with the private route table
 
   RDSInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: RDS Security Group
       VpcId: !Ref VPC
-      # The security group ingress rule will be added in infrastructure-stack.yml
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
           CidrIp: 0.0.0.0/0
+
       Tags:
         - Key: Name
           Value: budgetapp-prod-rds-sg
@@ -157,6 +190,7 @@ Resources:
         MaxCapacity: !Ref MaxCapacity
       EnableHttpEndpoint: true
       StorageEncrypted: true
+      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
       Tags:
         - Key: Name
           Value: budgetapp-prod-aurora-cluster
@@ -168,6 +202,7 @@ Resources:
       DBInstanceClass: db.serverless
       Engine: aurora-mysql
       PromotionTier: 1
+      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
       Tags:
         - Key: Name
           Value: budgetapp-prod-aurora-primary
@@ -187,4 +222,4 @@ Outputs:
     Value: !GetAtt RDSInstanceSecurityGroup.GroupId
   VPCId:
     Description: "VPC ID"
-    Value: !Ref VpcId
+    Value: !Ref VPC # Corrected: Refers to the created VPC resource
