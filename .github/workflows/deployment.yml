@@ -1,13 +1,22 @@
-name: Deploy Infrastructure
+name: Deploy BudgetApp Infrastructure
 
 on:
   push:
     branches:
-      - main
+      - main # Triggers on pushes to the main branch
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
 
 jobs:
-  deploy:
+  # Job 1: Deploy the core database infrastructure (VPC, Subnets, RDS)
+  # This stack will be deployed initially with public access for schema loading.
+  deploy-database-initial:
     runs-on: ubuntu-latest
+    outputs:
+      VPC_ID: ${{ steps.get_db_outputs.outputs.VPC_ID }}
+      AURORA_ENDPOINT: ${{ steps.get_db_outputs.outputs.AURORA_ENDPOINT }}
+      AURORA_PORT: ${{ steps.get_db_outputs.outputs.AURORA_PORT }}
+      RDS_SECURITY_GROUP_ID: ${{ steps.get_db_outputs.outputs.RDS_SECURITY_GROUP_ID }}
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -19,61 +28,166 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy CloudFormation stack
+      - name: Deploy Database Stack (Initial - Public Access)
         run: |
           aws cloudformation deploy \
-                --template-file initial.yml \
-                --stack-name mainStack \
-                --parameter-overrides \
-                    Cidr="10.0.0.0/16" \
-                    ContainerAV="us-east-1a" \
-                    ContainerAV2="us-east-1b" \
-                    DBAV="us-east-1c" \
-                    DBAV2="us-east-1d" \
-                    ContainerSubnetCidr="10.0.1.0/24" \
-                    ContainerSubnetCidr2="10.0.2.0/24" \
-                    DBSubnetCidr="10.0.3.0/24" \
-                    DBSubnetCidr2="10.0.4.0/24" \
-                    MasterUsername=${{ secrets.DB_USERNAME }} \
-                    MasterUserPassword=${{ secrets.DB_PASSWORD }} \
-                    DB_NAME=${{ secrets.DB_NAME }} \
-                    MinCapacity=0 \
-                    MaxCapacity=1 \
-                    RepoName="604Infrastructure" \
-                --capabilities CAPABILITY_NAMED_IAM
+            --template-file database-stack.yml \
+            --stack-name budgetapp-database \
+            --parameter-overrides \
+                Cidr="10.0.0.0/16" \
+                ContainerAV="us-east-1a" \
+                ContainerAV2="us-east-1b" \
+                DBAV="us-east-1c" \
+                DBAV2="us-east-1d" \
+                DBSubnetCidr="10.0.3.0/24" \
+                DBSubnetCidr2="10.0.4.0/24" \
+                MasterUsername="${{ secrets.DB_USERNAME }}" \
+                MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
+                DBName="${{ secrets.DB_NAME }}" \
+                MinCapacity=0 \
+                MaxCapacity=1 \
+                PubliclyAccessibleDatabase="true" \ # Set to true for initial schema loading
+            --capabilities CAPABILITY_NAMED_IAM
 
-      - name: Install MySQL
+      - name: Get Database Stack Outputs
+        id: get_db_outputs # ID for this step to reference its outputs
         run: |
-          sudo apt-get update -y 
+          VPC_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='VPCId'].OutputValue" --output text)
+          AURORA_ENDPOINT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterEndpoint'].OutputValue" --output text)
+          AURORA_PORT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterPort'].OutputValue" --output text)
+          RDS_SECURITY_GROUP_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='RDSInstanceSecurityGroupId'].OutputValue" --output text)
+          DB_NAME_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBNameOutput'].OutputValue" --output text)
+
+          echo "VPC_ID=$VPC_ID_VALUE" >> $GITHUB_OUTPUT
+          echo "AURORA_ENDPOINT=$AURORA_ENDPOINT_VALUE" >> $GITHUB_OUTPUT
+          echo "AURORA_PORT=$AURORA_PORT_VALUE" >> $GITHUB_OUTPUT
+          echo "RDS_SECURITY_GROUP_ID=$RDS_SECURITY_GROUP_ID_VALUE" >> $GITHUB_OUTPUT
+          echo "DB_NAME_OUTPUT=$DB_NAME_VALUE" >> $GITHUB_OUTPUT
+
+  # Job 2: Install MySQL client and load the database schema
+  load-db-schema:
+    runs-on: ubuntu-latest
+    needs: deploy-database-initial # Depends on the DB stack being deployed and outputs available
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install MySQL Client
+        run: |
+          sudo apt-get update -y
           sudo apt-get install mysql-client -y
 
-      - name: Get DB endpoint
-
-        id: getDatabase
+      - name: Load Database Schema
         run: |
-          echo "DB_ENDPOINT=$(aws cloudformation describe-stacks --stack-name mainStack --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterEndpoint'].OutputValue" --output text)" >> $GITHUB_ENV
-          echo "password = $(secrets.DB_PASSWORD)"
+          echo "Attempting to connect to database: ${{ env.DB_ENDPOINT }}"
+          # Use the actual DB_USER and DB_PASSWORD from secrets
+          mysql -v -h "${{ env.DB_ENDPOINT }}" -u "${{ env.DB_USER }}" -p"${{ env.DB_PASSWORD }}" < Schema.sql
+        env: # Set environment variables for this step's commands
+          DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.AURORA_ENDPOINT }}
+          DB_USER: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}
 
-      - name: Load DatabaseName
-        run: |
-          echo "Attempting to connect to database: $DB_ENDPOINT"
-          mysql -v -h $DB_ENDPOINT -u admin -p$password < schma.sql
+  # Job 3: Update the database stack to make it private
+  update-db-privacy:
+    runs-on: ubuntu-latest
+    needs: load-db-schema # Depends on schema being loaded
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      - name: Deploy updated stack
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update Database Stack
         run: |
           aws cloudformation deploy \
-          --stack-name mainStack \
-          --template-file main.yml \
-          --capabilities CAPABILITY_NAMED_IAM \
+            --template-file database-stack.yml \ # Use the same template
+            --stack-name budgetapp-database \ # Update the same stack
+            --parameter-overrides \
+                Cidr="10.0.0.0/16" \
+                ContainerAV="us-east-1a" \
+                ContainerAV2="us-east-1b" \
+                DBAV="us-east-1c" \
+                DBAV2="us-east-1d" \
+                DBSubnetCidr="10.0.3.0/24" \
+                DBSubnetCidr2="10.0.4.0/24" \
+                MasterUsername="${{ secrets.DB_USERNAME }}" \
+                MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
+                DBName="${{ secrets.DB_NAME }}" \
+                MinCapacity=0 \
+                MaxCapacity=1 \
+                PubliclyAccessibleDatabase="false" \ # Set to false to make it private
+            --capabilities CAPABILITY_NAMED_IAM
+
+  # Job 4: Deploy and maintain the application infrastructure (ECS, ALB, API Gateway, etc.)
+  # This stack will reference outputs from the database stack.
+  deploy-app-infrastructure:
+    runs-on: ubuntu-latest
+    # Depends on DB privacy update (for sequence) and initial DB deployment (for outputs)
+    needs: [update-db-privacy, deploy-database-initial]
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 # Required for multi-platform builds
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
 
-      - name: Build and push backend image
+      - name: Build and Push Backend Image
         run: |
           # Navigate to the directory containing the Dockerfile
           cd backend
-          docker build build --tag infrastrcture -o type=image --platform=linux/arm64,linux/amd64 
-          docker tag backend:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:backend
-          docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:backend
+          # Build for multiple platforms, tagging with a specific name
+          docker build --platform linux/amd64,linux/arm64 -t infrastructure:latest .
+          # Tag the image for ECR
+          docker tag infrastructure:latest ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
+          # Push the image to ECR
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
+        env:
+          # Pass AWS_ACCOUNT_ID and AWS_REGION to the docker build/push commands if needed
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION: us-east-1 # Use hardcoded region from workflow
+
+      - name: Deploy Application Infrastructure Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infrastructure-stack.yml \
+            --stack-name budgetapp-infrastructure \
+            --parameter-overrides \
+                Cidr="10.0.0.0/16" \
+                ContainerAV="us-east-1a" \
+                ContainerAV2="us-east-1b" \
+                ContainerSubnetCidr="10.0.1.0/24" \
+                ContainerSubnetCidr2="10.0.2.0/24" \
+                RepoName="${{ secrets.ECR_REPOSITORY }}" \
+                VpcId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
+                RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
+                AuroraCluster_Endpoint="${{ needs.deploy-database-initial.outputs.AURORA_ENDPOINT }}" \
+                AuroraCluster_Endpoint_Port="${{ needs.deploy-database-initial.outputs.AURORA_PORT }}" \
+                DBName="${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}" \
+                MasterUsername="${{ secrets.DB_USERNAME }}" \
+                MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
+            --capabilities CAPABILITY_NAMED_IAM
+        working-directory: ${{ github.workspace }}

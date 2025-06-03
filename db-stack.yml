@@ -1,0 +1,248 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation template for the database resources of the financial budgeting and savings application.
+
+Parameters:
+  Cidr:
+    Type: String
+    Default: "10.0.0.0/16"
+    Description: Enter the CIDR block for the VPC.
+
+  ContainerAV: # These are still here from the original combined template, but not directly used by DB resources.
+    Type: AWS::EC2::AvailabilityZone::Name # Consider if these are truly needed in this DB stack.
+    Description: Availability Zone for subnet 1.
+
+  ContainerAV2: # These are still here from the original combined template, but not directly used by DB resources.
+    Type: AWS::EC2::AvailabilityZone::Name # Consider if these are truly needed in this DB stack.
+    Description: Availability Zone for subnet 2.
+
+  DBSubnetCidr:
+    Type: String
+    Description: CIDR Block for DB subnet 1.
+    Default: "10.0.3.0/24"
+
+  DBAV:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for DB subnet 1.
+
+  DBSubnetCidr2:
+    Type: String
+    Description: CIDR Block for DB subnet 2.
+    Default: "10.0.4.0/24"
+
+  DBAV2:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: Availability Zone for DB subnet 2.
+
+  MasterUsername:
+    Type: String
+    Description: "Master username for the RDS instance"
+    NoEcho: true
+
+  MasterUserPassword:
+    Type: String
+    Description: "Master user password for the RDS instance"
+    NoEcho: true
+
+  DBName:
+    Type: String
+    Description: "Name of the database to create"
+    Default: "budgetapp"
+
+  MinCapacity:
+    Type: Number
+    Description: "Minimum ACU capacity for Aurora Serverless v2"
+    Default: 0
+    MaxValue: 128
+
+  MaxCapacity:
+    Type: Number
+    Description: "Maximum ACU capacity for Aurora Serverless v2"
+    Default: 1
+    MinValue: 0.5
+    MaxValue: 128
+
+  # --- New Parameter for Public Accessibility Control ---
+  PubliclyAccessibleDatabase:
+    Type: String
+    Description: "Set to 'true' to make the database publicly accessible (for initial setup), 'false' for private."
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false" # Default to private for security
+  # --- End New Parameter ---
+
+Conditions:
+  # Condition to determine if the database should be publicly accessible
+  IsPubliclyAccessible: !Equals [!Ref PubliclyAccessibleDatabase, "true"]
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref Cidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-vpc
+
+  DBSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Ref DBAV
+      CidrBlock: !Ref DBSubnetCidr
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-db-subnet-1
+
+  DBSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Ref DBAV2
+      CidrBlock: !Ref DBSubnetCidr2
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-db-subnet-2
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-public-rt
+
+  # --- Missing Resource: Route to Internet Gateway ---
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  # --- End Missing Resource ---
+
+  # Association for DBSubnet2 to the Public Route Table (for temporary public access)
+  DBSubnet2RouteTableAssociation: # Renamed for clarity
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBSubnet2
+      RouteTableId: !Ref PublicRouteTable # Associate with the public route table
+
+  # --- New: Private Route Table for DBSubnet (default private) ---
+  PrivateRouteTableDB:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-db-private-rt
+  # --- End New ---
+
+  # Association for DBSubnet to the Private Route Table (default private)
+  DBSubnetRouteTableAssociation: # Renamed for clarity
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DBSubnet
+      RouteTableId: !Ref PrivateRouteTableDB # Associate with the private route table
+
+  RDSInstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RDS Security Group
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # Rule for public access, conditional on PubliclyAccessibleDatabase parameter
+        - !If
+          - IsPubliclyAccessible
+          - IpProtocol: tcp
+            FromPort: 3306
+            ToPort: 3306
+            CidrIp: 0.0.0.0/0 # WARNING: This opens DB to the internet. Use only for temporary setup.
+          - !Ref "AWS::NoValue" # If not public, no ingress from 0.0.0.0/0
+        # Rule for internal access (from ECS tasks), always present
+        # This will be added by the infrastructure-stack.yml via AWS::EC2::SecurityGroupIngress
+        # - IpProtocol: tcp
+        #   FromPort: 3306
+        #   ToPort: 3306
+        #   SourceSecurityGroupId: !ImportValue BudgetAppInfrastructure-ECSTaskSG-ID # Example if ECS SG is exported
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-rds-sg
+
+  AuroraDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: "AuroraDBSubnetGroup"
+      DBSubnetGroupDescription: "Subnet group for Aurora Serverless v2"
+      SubnetIds:
+        - !Ref DBSubnet
+        - !Ref DBSubnet2
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-db-subnet-group
+
+  AuroraCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: aurora-mysql
+      EngineVersion: "8.0.mysql_aurora.3.08.0"
+      DatabaseName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      DBClusterIdentifier: !Sub "${AWS::StackName}-aurora-cluster"
+      DBSubnetGroupName: !Ref AuroraDBSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RDSInstanceSecurityGroup
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref MinCapacity
+        MaxCapacity: !Ref MaxCapacity
+      EnableHttpEndpoint: true
+      StorageEncrypted: true
+      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-aurora-cluster
+
+  AuroraPrimaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: db.serverless
+      Engine: aurora-mysql
+      PromotionTier: 1
+      PubliclyAccessible: !If [IsPubliclyAccessible, true, false] # Conditional public access
+      Tags:
+        - Key: Name
+          Value: budgetapp-prod-aurora-primary
+
+Outputs:
+  AuroraClusterEndpoint:
+    Description: "Aurora Cluster Endpoint"
+    Value: !GetAtt AuroraCluster.Endpoint.Address
+  AuroraClusterPort:
+    Description: "Aurora Cluster Port"
+    Value: !GetAtt AuroraCluster.Endpoint.Port
+  DBNameOutput:
+    Description: "Database Name"
+    Value: !Ref DBName
+  RDSInstanceSecurityGroupId:
+    Description: "RDS Instance Security Group ID"
+    Value: !GetAtt RDSInstanceSecurityGroup.GroupId
+  VPCId:
+    Description: "VPC ID"
+    Value: !Ref VPC # Corrected: Refers to the created VPC resource
