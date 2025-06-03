@@ -31,7 +31,7 @@ jobs:
       - name: Deploy Database Stack (Initial - Public Access)
         run: |
           aws cloudformation deploy \
-            --template-file database-stack.yml \
+            --template-file db-stack.yml \
             --stack-name budgetapp-database \
             --parameter-overrides \
                 Cidr="10.0.0.0/16" \
@@ -113,7 +113,7 @@ jobs:
       - name: Update Database Stack
         run: |
           aws cloudformation deploy \
-            --template-file database-stack.yml \ # Use the same template
+            --template-file db-stack.yml \ # Use the same template
             --stack-name budgetapp-database \ # Update the same stack
             --parameter-overrides \
                 Cidr="10.0.0.0/16" \
@@ -173,7 +173,7 @@ jobs:
       - name: Deploy Application Infrastructure Stack
         run: |
           aws cloudformation deploy \
-            --template-file infrastructure-stack.yml \
+            --template-file coreStack.yml \
             --stack-name budgetapp-infrastructure \
             --parameter-overrides \
                 Cidr="10.0.0.0/16" \
