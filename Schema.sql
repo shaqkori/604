@@ -25,8 +25,7 @@ CREATE TABLE IF NOT EXISTS savings (
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
-INSERT INTO categories (id, name) VALUES
+INSERT IGNORE INTO categories (id, name) VALUES
 (1, 'Salary'),
 (2, 'Freelance'),
 (3, 'Investment'),
