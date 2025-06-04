@@ -88,7 +88,7 @@ jobs:
         run: |
           echo "Attempting to connect to database: ${{ env.DB_ENDPOINT }}"
           echo "Running schema.sql against ${{ env.DB_NAME }} on port ${{ env.DB_PORT }}"
-          mysql -v -h "${{ env.DB_ENDPOINT }}" -P "${{ env.DB_PORT }}" -u "admin" -p"${{ env.DB_PASSWORD }}" -D "${{ env.DB_NAME }}" < Schema.sql
+          mysql -v -h "${{ env.DB_ENDPOINT }}" -P "${{ env.DB_PORT }}" -u admin -p"${{ env.DB_PASSWORD }}" -D "${{ env.DB_NAME }}" < Schema.sql
         env: # Set environment variables for this step's commands
           DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}
           DB_PORT: ${{ needs.deploy-database-initial.outputs.DB_PORT }}
