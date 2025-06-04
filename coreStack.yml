@@ -78,18 +78,6 @@ Resources:
           Value: budgetapp-prod-container-subnet-2
 
   # Internet Gateway and Route Tables (needed for S3 Gateway endpoint)
-  InternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: budgetapp-prod-igw
-
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VPCId
-      InternetGatewayId: !Ref InternetGateway
 
   PrivateRouteTable1:
     Type: AWS::EC2::RouteTable
