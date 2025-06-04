@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VPC_ID: ${{ steps.get_db_outputs.outputs.VPC_ID }}
-      # CORRECTED: Ensure job outputs match step outputs
       DB_ENDPOINT: ${{ steps.get_db_outputs.outputs.DB_ENDPOINT_VALUE }}
       DB_PORT: ${{ steps.get_db_outputs.outputs.DB_PORT_VALUE }}
       RDS_SECURITY_GROUP_ID: ${{ steps.get_db_outputs.outputs.RDS_SECURITY_GROUP_ID }}
@@ -125,7 +124,7 @@ jobs:
                 ContainerSubnetCidr="10.0.1.0/24" \
                 ContainerSubnetCidr2="10.0.2.0/24" \
                 RepoName="${{ secrets.ECR_REPOSITORY }}" \
-                VpcId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
+                VPCId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
                 RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
                 DBEndpoint="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
                 DBEndpointPort="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \

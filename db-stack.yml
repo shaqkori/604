@@ -213,4 +213,4 @@ Outputs:
     Value: !GetAtt RDSInstanceSecurityGroup.GroupId
   VPCId:
     Description: "VPC ID"
-    Value: !Ref VPC # Corrected: Refers to the created VPC resource
+    Value: !Ref VPC

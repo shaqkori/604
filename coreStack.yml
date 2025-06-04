@@ -44,7 +44,7 @@ Parameters:
     Description: "Name of the database to create"
     Default: "budgetapp"
 
-  VpcId:
+  VPCId:
     Type: String
 
   RdsSecurityGroupId:
