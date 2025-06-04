@@ -46,7 +46,7 @@ jobs:
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
                 DBName="${{ secrets.DB_NAME }}" \
-                publicAccess="true" 
+                publicAccess="true" \
             --capabilities CAPABILITY_NAMED_IAM
 
       - name: Get Database Stack Outputs
