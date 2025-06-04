@@ -141,7 +141,7 @@ jobs:
       - name: Build and Push Backend Image
         run: |
           cd backend
-          docker build --platform linux/amd64,linux/arm64 -t infrastructure:latest .
+          docker build -t backend .
           docker tag infrastructure:latest ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
         env:
