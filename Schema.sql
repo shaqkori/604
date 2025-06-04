@@ -1,13 +1,12 @@
 
 USE bugetapp;
 
-
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id INT PRIMARY KEY,  
     name VARCHAR(100) NOT NULL
 );
 
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     description VARCHAR(255) NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
@@ -18,7 +17,7 @@ CREATE TABLE transactions (
 );
 
 
-CREATE TABLE savings (
+CREATE TABLE IF NOT EXISTS savings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     target_amount DECIMAL(10,2) NOT NULL,
