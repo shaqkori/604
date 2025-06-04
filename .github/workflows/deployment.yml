@@ -128,7 +128,7 @@ jobs:
                 RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
                 DBEndpoint="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
                 DBEndpointPort="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \
-                DBName="${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}" \
+                DBName="bugetapp" \
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
             --capabilities CAPABILITY_NAMED_IAM

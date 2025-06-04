@@ -42,7 +42,7 @@ Parameters:
   DBName:
     Type: String
     Description: "Name of the database to create"
-    Default: "budgetapp"
+    Default: "bugetapp"
 
   VPCId:
     Type: String
