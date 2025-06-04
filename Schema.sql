@@ -1,5 +1,5 @@
-CREATE DATABASE budgeting_app;
-USE budgeting_app;
+
+USE bugetapp;
 
 
 CREATE TABLE categories (

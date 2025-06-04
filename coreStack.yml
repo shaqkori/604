@@ -50,10 +50,10 @@ Parameters:
   RdsSecurityGroupId:
     Type: String
 
-  AuroraCluster_Endpoint:
+  DB_Endpoint:
     Type: String
 
-  AuroraCluster_Endpoint_Port:
+  DB_Endpoint_Port:
     Type: String
 
 Resources:
@@ -661,9 +661,9 @@ Resources:
             - Name: API_URL
               Value: !Sub "https://${DataAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
             - Name: DB_HOST
-              Value: !Ref AuroraCluster_Endpoint
+              Value: !Ref DB_Endpoint
             - Name: DB_PORT
-              Value: !Ref AuroraCluster_Endpoint_Port
+              Value: !Ref DB_Endpoint_Port
             - Name: DB_NAME
               Value: !Ref DBName
             - Name: DB_USER
