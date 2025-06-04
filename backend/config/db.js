@@ -19,57 +19,42 @@ const pool = mysql.createPool({
 
 // Function to test database connection
 async function testConnection() {
-  let connection; // Declare connection outside try to ensure it's accessible in finally
   try {
-    connection = await pool.getConnection();
+    const connection = await pool.getConnection();
     console.log("Connected to database");
 
     await createTables(connection); // Create tables
     await insertCategories(connection); // Insert default categories
+
+    connection.release(); // Release connection back to pool
   } catch (error) {
     console.error("Database connection failed:", error);
     process.exit(1);
-  } finally {
-    if (connection) {
-      connection.release(); // Ensure connection is released even if errors occur
-    }
   }
 }
 
 // Function to create tables
 async function createTables(connection) {
   try {
-    // Users table
-    const [usersResult] = await connection.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(255) PRIMARY KEY,
         email VARCHAR(255) NOT NULL UNIQUE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // Check warningStatus to see if table already existed
-    if (usersResult.warningStatus > 0) {
-      console.log("Table 'users' already exists.");
-    } else {
-      console.log("Table 'users' created successfully.");
-    }
+    console.log("Table 'users' is ready");
 
-    // Categories table
-    const [categoriesResult] = await connection.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS categories (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL UNIQUE,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    if (categoriesResult.warningStatus > 0) {
-      console.log("Table 'categories' already exists.");
-    } else {
-      console.log("Table 'categories' created successfully.");
-    }
+    console.log("Table 'categories' is ready");
 
-    // Transactions table
-    const [transactionsResult] = await connection.execute(`
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS transactions (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id VARCHAR(255) NOT NULL,
@@ -85,15 +70,9 @@ async function createTables(connection) {
         INDEX (category_id)
       )
     `);
-    if (transactionsResult.warningStatus > 0) {
-      console.log("Table 'transactions' already exists.");
-    } else {
-      console.log("Table 'transactions' created successfully.");
-    }
+    console.log("Table 'transactions' is ready");
 
-    // Savings table
-    const [savingsResult] = await connection.execute(`
-      USE bugetapp,
+    await connection.execute(`
       CREATE TABLE IF NOT EXISTS savings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id VARCHAR(255) NOT NULL,
@@ -106,13 +85,9 @@ async function createTables(connection) {
         INDEX (user_id)
       )
     `);
-    if (savingsResult.warningStatus > 0) {
-      console.log("Table 'savings' already exists.");
-    } else {
-      console.log("Table 'savings' created successfully.");
-    }
+    console.log("Table 'savings' is ready");
 
-    console.log("All table checks complete.");
+    console.log("All tables are ready");
   } catch (error) {
     console.error("Error creating tables:", error);
     process.exit(1);
@@ -132,8 +107,6 @@ async function insertCategories(connection) {
     ];
 
     for (const category of categories) {
-      // INSERT IGNORE will insert only if the 'name' is not already present
-      // due to the UNIQUE constraint on the 'name' column.
       await connection.execute(
         `INSERT IGNORE INTO categories (name) VALUES (?)`,
         [category]
@@ -147,8 +120,9 @@ async function insertCategories(connection) {
   }
 }
 
-// Execute the connection test and table creation
 testConnection();
 
-// Export the pool for other modules to use
 module.exports = pool;
+
+//tables create like this only to showcase the functionality idealy the schema is initiated when the workflow is deployed once rarher than
+// any time  the contain is spin up
