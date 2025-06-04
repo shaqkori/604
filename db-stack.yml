@@ -29,9 +29,6 @@ Parameters:
     Description: CIDR Block for DB subnet 2.
     Default: "10.0.4.0/24"
 
-  KeyPairName:
-    Type: AWS::EC2::KeyPair::KeyName
-
   DBAV2:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: Availability Zone for DB subnet 2.
