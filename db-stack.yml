@@ -29,6 +29,9 @@ Parameters:
     Description: CIDR Block for DB subnet 2.
     Default: "10.0.4.0/24"
 
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+
   DBAV2:
     Type: AWS::EC2::AvailabilityZone::Name
     Description: Availability Zone for DB subnet 2.
@@ -48,18 +51,21 @@ Parameters:
     Description: "Name of the database to create"
     Default: "budgetapp"
 
-  MinCapacity:
-    Type: Number
-    Description: "Minimum ACU capacity for Aurora Serverless v2"
-    Default: 0
-    MaxValue: 128
+  publicAccess:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+    Description: "Enable Public Access"
 
-  MaxCapacity:
-    Type: Number
-    Description: "Maximum ACU capacity for Aurora Serverless v2"
-    Default: 1
-    MinValue: 0.5
-    MaxValue: 128
+  EnableMultiAZ:
+    Type: String
+    Default: false
+    AllowedValues:
+      - true
+      - false
+    Description: "Enable multi-AZ deployment"
 
 Resources:
   VPC:
@@ -78,6 +84,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Ref DBAV
       CidrBlock: !Ref DBSubnetCidr
+      MapPublicIpOnLaunch: true # Added this line
       Tags:
         - Key: Name
           Value: budgetapp-prod-db-subnet-1
@@ -88,6 +95,7 @@ Resources:
       VpcId: !Ref VPC
       AvailabilityZone: !Ref DBAV2
       CidrBlock: !Ref DBSubnetCidr2
+      MapPublicIpOnLaunch: true # Added this line
       Tags:
         - Key: Name
           Value: budgetapp-prod-db-subnet-2
@@ -161,56 +169,45 @@ Resources:
         - Key: Name
           Value: budgetapp-prod-rds-sg
 
-  AuroraDBSubnetGroup:
+  RDSSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupName: "AuroraDBSubnetGroup"
-      DBSubnetGroupDescription: "Subnet group for Aurora Serverless v2"
+      DBSubnetGroupName: "RDSSg"
+      DBSubnetGroupDescription: "DB Subnet Group"
       SubnetIds:
         - !Ref DBSubnet
         - !Ref DBSubnet2
-      Tags:
-        - Key: Name
-          Value: budgetapp-prod-db-subnet-group
 
-  AuroraCluster:
-    Type: AWS::RDS::DBCluster
-    Properties:
-      Engine: aurora-mysql
-      EngineVersion: "8.0.mysql_aurora.3.08.0"
-      DatabaseName: !Ref DBName
-      MasterUsername: !Ref MasterUsername
-      MasterUserPassword: !Ref MasterUserPassword
-      DBClusterIdentifier: !Sub "${AWS::StackName}-aurora-cluster"
-      DBSubnetGroupName: !Ref AuroraDBSubnetGroup
-      VpcSecurityGroupIds:
-        - !Ref RDSInstanceSecurityGroup
-      ServerlessV2ScalingConfiguration:
-        MinCapacity: !Ref MinCapacity
-        MaxCapacity: !Ref MaxCapacity
-      EnableHttpEndpoint: true
-      StorageEncrypted: true
-      Tags:
-        - Key: Name
-          Value: budgetapp-prod-aurora-cluster
-
-  AuroraPrimaryInstance:
+  RDS:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBClusterIdentifier: !Ref AuroraCluster
-      DBInstanceClass: db.serverless
-      Engine: aurora-mysql
-      PromotionTier: 1
-      Tags:
-        - Key: Name
-          Value: budgetapp-prod-aurora-primary
+      DBName: !Ref DBName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      Engine: mysql
+      EngineVersion: "8.0.34"
+      PubliclyAccessible: !Ref publicAccess
+      MultiAZ: !Ref EnableMultiAZ
+      VPCSecurityGroups:
+        - !GetAtt RDSInstanceSecurityGroup.GroupId
+
+  ReadReplicaDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      SourceDBInstanceIdentifier: !Ref RDS
+      DBInstanceIdentifier: !Sub "${AWS::StackName}-ReadReplica"
+      DBInstanceClass: db.t3.micro
+
 Outputs:
-  AuroraClusterEndpoint:
-    Description: "Aurora Cluster Endpoint"
-    Value: !GetAtt AuroraCluster.Endpoint.Address
-  AuroraClusterPort:
-    Description: "Aurora Cluster Port"
-    Value: !GetAtt AuroraCluster.Endpoint.Port
+  DatabaseEndpoint:
+    Description: "Database Endpoint"
+    Value: !GetAtt RDS.Endpoint.Address
+  DatabasePort:
+    Description: "Database Port"
+    Value: !GetAtt RDS.Endpoint.Port
   DBNameOutput:
     Description: "Database Name"
     Value: !Ref DBName

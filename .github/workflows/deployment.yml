@@ -13,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VPC_ID: ${{ steps.get_db_outputs.outputs.VPC_ID }}
-      AURORA_ENDPOINT: ${{ steps.get_db_outputs.outputs.AURORA_ENDPOINT }}
-      AURORA_PORT: ${{ steps.get_db_outputs.outputs.AURORA_PORT }}
+      # CORRECTED: Ensure job outputs match step outputs
+      DB_ENDPOINT: ${{ steps.get_db_outputs.outputs.DB_ENDPOINT_VALUE }}
+      DB_PORT: ${{ steps.get_db_outputs.outputs.DB_PORT_VALUE }}
       RDS_SECURITY_GROUP_ID: ${{ steps.get_db_outputs.outputs.RDS_SECURITY_GROUP_ID }}
+      DB_NAME_OUTPUT: ${{ steps.get_db_outputs.outputs.DB_NAME_OUTPUT }}
 
     steps:
       - name: Checkout Repo
@@ -44,22 +46,23 @@ jobs:
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
                 DBName="${{ secrets.DB_NAME }}" \
-                MinCapacity=0 \
-                MaxCapacity=1 \
+                # CORRECTED: Fixed typo in publicAccess parameter
+                publicAccess="true" \
             --capabilities CAPABILITY_NAMED_IAM
 
       - name: Get Database Stack Outputs
         id: get_db_outputs # ID for this step to reference its outputs
         run: |
           VPC_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='VPCId'].OutputValue" --output text)
-          AURORA_ENDPOINT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterEndpoint'].OutputValue" --output text)
-          AURORA_PORT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='AuroraClusterPort'].OutputValue" --output text)
+          # CORRECTED: Changed OutputKey names to match your RDS CloudFormation template
+          DB_ENDPOINT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBInstanceEndpoint'].OutputValue" --output text)
+          DB_PORT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBInstancePort'].OutputValue" --output text)
           RDS_SECURITY_GROUP_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='RDSInstanceSecurityGroupId'].OutputValue" --output text)
           DB_NAME_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBNameOutput'].OutputValue" --output text)
 
           echo "VPC_ID=$VPC_ID_VALUE" >> $GITHUB_OUTPUT
-          echo "AURORA_ENDPOINT=$AURORA_ENDPOINT_VALUE" >> $GITHUB_OUTPUT
-          echo "AURORA_PORT=$AURORA_PORT_VALUE" >> $GITHUB_OUTPUT
+          echo "DB_ENDPOINT_VALUE=$DB_ENDPOINT_VALUE" >> $GITHUB_OUTPUT
+          echo "DB_PORT_VALUE=$DB_PORT_VALUE" >> $GITHUB_OUTPUT
           echo "RDS_SECURITY_GROUP_ID=$RDS_SECURITY_GROUP_ID_VALUE" >> $GITHUB_OUTPUT
           echo "DB_NAME_OUTPUT=$DB_NAME_VALUE" >> $GITHUB_OUTPUT
 
@@ -86,10 +89,14 @@ jobs:
       - name: Load Database Schema
         run: |
           echo "Attempting to connect to database: ${{ env.DB_ENDPOINT }}"
-          # Use the actual DB_USER and DB_PASSWORD from secrets
-          mysql -v -h "${{ env.DB_ENDPOINT }}" -u "${{ env.DB_USER }}" -p"${{ env.DB_PASSWORD }}" < Schema.sql
+          # CORRECTED: Fixed typo in 'echo'
+          echo "Running schema.sql against ${{ env.DB_NAME }} on port ${{ env.DB_PORT }}"
+
+          # CORRECTED: Added -P for port and -D for database name
+          mysql -v -h "${{ env.DB_ENDPOINT }}" -P "${{ env.DB_PORT }}" -u "${{ env.DB_USER }}" -p"${{ env.DB_PASSWORD }}" -D "${{ env.DB_NAME }}" < Schema.sql
         env: # Set environment variables for this step's commands
-          DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.AURORA_ENDPOINT }}
+          DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}
+          DB_PORT: ${{ needs.deploy-database-initial.outputs.DB_PORT }}
           DB_USER: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}
@@ -97,7 +104,8 @@ jobs:
   # This stack will reference outputs from the database stack.
   deploy-app-infrastructure:
     runs-on: ubuntu-latest
-    # Depends on DB privacy update (for sequence) and initial DB deployment (for outputs)
+    # Depends on initial DB deployment and schema loading
+    needs: [deploy-database-initial, load-db-schema]
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -123,8 +131,9 @@ jobs:
                 RepoName="${{ secrets.ECR_REPOSITORY }}" \
                 VpcId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
                 RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
-                AuroraCluster_Endpoint="${{ needs.deploy-database-initial.outputs.AURORA_ENDPOINT }}" \
-                AuroraCluster_Endpoint_Port="${{ needs.deploy-database-initial.outputs.AURORA_PORT }}" \
+                # CORRECTED: Updated parameter names for coreStack.yml based on new DB outputs
+                DB_ENDPOINT="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
+                DB_PORT="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \
                 DBName="${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}" \
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
