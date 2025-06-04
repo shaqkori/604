@@ -141,8 +141,8 @@ jobs:
       - name: Build and Push Backend Image
         run: |
           cd backend
-          docker build -t backend .
-          docker tag backend:latest ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
+          docker build -t demo .
+          docker tag demo:latest ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
           docker push ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:backend
         env:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
