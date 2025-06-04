@@ -53,8 +53,8 @@ jobs:
         id: get_db_outputs # ID for this step to reference its outputs
         run: |
           VPC_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='VPCId'].OutputValue" --output text)
-          DB_ENDPOINT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBInstanceEndpoint'].OutputValue" --output text)
-          DB_PORT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBInstancePort'].OutputValue" --output text)
+          DB_ENDPOINT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DatabaseEndpoint'].OutputValue" --output text)
+          DB_PORT_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DatabasePort'].OutputValue" --output text)
           RDS_SECURITY_GROUP_ID_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='RDSInstanceSecurityGroupId'].OutputValue" --output text)
           DB_NAME_VALUE=$(aws cloudformation describe-stacks --stack-name budgetapp-database --query "Stacks[0].Outputs[?OutputKey=='DBNameOutput'].OutputValue" --output text)
 
@@ -90,8 +90,8 @@ jobs:
           echo "Running schema.sql against ${{ env.DB_NAME }} on port ${{ env.DB_PORT }}"
           mysql -v -h "${{ env.DB_ENDPOINT }}" -P "${{ env.DB_PORT }}" -u "${{ env.DB_USER }}" -p"${{ env.DB_PASSWORD }}" -D "${{ env.DB_NAME }}" < Schema.sql
         env: # Set environment variables for this step's commands
-          DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.DB_ENDPOINT_VALUE }}
-          DB_PORT: ${{ needs.deploy-database-initial.outputs.DB_PORT_VALUE }}
+          DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}
+          DB_PORT: ${{ needs.deploy-database-initial.outputs.DB_PORT }}
           DB_USER: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}
