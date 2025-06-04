@@ -50,10 +50,10 @@ Parameters:
   RdsSecurityGroupId:
     Type: String
 
-  DB_Endpoint:
+  DBEndpoint:
     Type: String
 
-  DB_Endpoint_Port:
+  DBEndpointPort:
     Type: String
 
 Resources:
@@ -661,9 +661,9 @@ Resources:
             - Name: API_URL
               Value: !Sub "https://${DataAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
             - Name: DB_HOST
-              Value: !Ref DB_Endpoint
+              Value: !Ref DBEndpoint
             - Name: DB_PORT
-              Value: !Ref DB_Endpoint_Port
+              Value: !Ref DBEndpointPort
             - Name: DB_NAME
               Value: !Ref DBName
             - Name: DB_USER
