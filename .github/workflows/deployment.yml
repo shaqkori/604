@@ -45,8 +45,7 @@ jobs:
                 DBSubnetCidr2="10.0.4.0/24" \
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
-                DBName="${{ secrets.DB_NAME }}" \
-                # CORRECTED: Fixed typo in publicAccess parameter
+                DBName="${{ secrets.DB_NAME }}"
                 publicAccess="true" \
             --capabilities CAPABILITY_NAMED_IAM
 
@@ -91,8 +90,6 @@ jobs:
           echo "Attempting to connect to database: ${{ env.DB_ENDPOINT }}"
           # CORRECTED: Fixed typo in 'echo'
           echo "Running schema.sql against ${{ env.DB_NAME }} on port ${{ env.DB_PORT }}"
-
-          # CORRECTED: Added -P for port and -D for database name
           mysql -v -h "${{ env.DB_ENDPOINT }}" -P "${{ env.DB_PORT }}" -u "${{ env.DB_USER }}" -p"${{ env.DB_PASSWORD }}" -D "${{ env.DB_NAME }}" < Schema.sql
         env: # Set environment variables for this step's commands
           DB_ENDPOINT: ${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}
@@ -131,7 +128,6 @@ jobs:
                 RepoName="${{ secrets.ECR_REPOSITORY }}" \
                 VpcId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
                 RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
-                # CORRECTED: Updated parameter names for coreStack.yml based on new DB outputs
                 DB_ENDPOINT="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
                 DB_PORT="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \
                 DBName="${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}" \
