@@ -45,8 +45,8 @@ jobs:
                 DBSubnetCidr2="10.0.4.0/24" \
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
-                DBName="${{ secrets.DB_NAME }}"
-                publicAccess="true" \
+                DBName="${{ secrets.DB_NAME }}" \
+                publicAccess="true" 
             --capabilities CAPABILITY_NAMED_IAM
 
       - name: Get Database Stack Outputs
