@@ -1,4 +1,3 @@
-
 USE bugetapp;
 
 CREATE TABLE IF NOT EXISTS categories (
