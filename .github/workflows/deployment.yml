@@ -127,8 +127,8 @@ jobs:
                 RepoName="${{ secrets.ECR_REPOSITORY }}" \
                 VpcId="${{ needs.deploy-database-initial.outputs.VPC_ID }}" \
                 RdsSecurityGroupId="${{ needs.deploy-database-initial.outputs.RDS_SECURITY_GROUP_ID }}" \
-                DB_ENDPOINT="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
-                DB_PORT="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \
+                DBEndpoint="${{ needs.deploy-database-initial.outputs.DB_ENDPOINT }}" \
+                DBEndpointPort="${{ needs.deploy-database-initial.outputs.DB_PORT }}" \
                 DBName="${{ needs.deploy-database-initial.outputs.DB_NAME_OUTPUT }}" \
                 MasterUsername="${{ secrets.DB_USERNAME }}" \
                 MasterUserPassword="${{ secrets.DB_PASSWORD }}" \
