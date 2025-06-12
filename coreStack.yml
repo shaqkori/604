@@ -249,8 +249,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "GET /categories"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   SavingsGetRoute:
@@ -258,8 +256,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "GET /savings"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   SavingsPostRoute:
@@ -267,8 +263,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "POST /savings"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   SavingsIdGetRoute:
@@ -276,8 +270,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "GET /savings/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   SavingsIdPutRoute:
@@ -285,8 +277,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "PUT /savings/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   SavingsIdDeleteRoute:
@@ -294,8 +284,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "DELETE /savings/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   TransactionsGetRoute:
@@ -303,8 +291,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "GET /transactions"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   TransactionsPostRoute:
@@ -312,8 +298,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "POST /transactions"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   TransactionsIdGetRoute:
@@ -321,8 +305,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "GET /transactions/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   TransactionsIdPutRoute:
@@ -330,8 +312,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "PUT /transactions/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   TransactionsIdDeleteRoute:
@@ -339,8 +319,6 @@ Resources:
     Properties:
       ApiId: !Ref DataAPI
       RouteKey: "DELETE /transactions/{id}"
-      AuthorizationType: JWT
-      AuthorizerId: !Ref CogAuthorizer
       Target: !Sub "integrations/${ApiIntegration}"
 
   Deployment:

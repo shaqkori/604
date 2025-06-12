@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS savings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    target_amount DECIMAL(10,2) NOT NULL,
-    current_amount DECIMAL(10,2) DEFAULT 0,
-    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    targetAmount DECIMAL(10,2) NOT NULL,
+    currentAmount DECIMAL(10,2) DEFAULT 0,
+    dateCreated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 INSERT IGNORE INTO categories (id, name) VALUES

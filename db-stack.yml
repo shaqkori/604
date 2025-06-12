@@ -149,7 +149,7 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref DBSubnet
-      RouteTableId: !Ref PrivateRouteTableDB # Associate with the private route table
+      RouteTableId: !Ref PublicRouteTable # Associate with the private route table
 
   RDSInstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
